@@ -1,4 +1,3 @@
-# Projet-python
 # Stratégie Momentum Long/Short
 
 ## Objectif
