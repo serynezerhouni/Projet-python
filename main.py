@@ -15,11 +15,13 @@ from src.analysis import (
     run_subperiods_table,
     run_ablation_tests,
 )
+from src.signals import momentum_scores_pocheA
+from src.portfolio import compute_weights_from_scores
+
 
 # =========================
 # 1) CONFIG PROJET
 # =========================
-
 UNIVERSE = [
     "AAPL","ABBV","ABT","ACN","ADBE","AIG","AMD","AMGN","AMT","AMZN","AVGO","AXP","BA","BAC","BK",
     "BKNG","BLK","BMY","BRK-B","C","CAT","CL","CMCSA","COF","COP","COST","CRM","CSCO","CVS","CVX",
@@ -31,9 +33,8 @@ UNIVERSE = [
 ]
 
 START_DATE = "2010-01-01"
-END_DATE = None  # None = jusqu'à aujourd'hui
+END_DATE = None
 
-# Produit final = low-vol géré dans les poids (rank * inv-vol), donc score NON risk-adjust
 FINAL_PARAMS = dict(
     lookback_days=60,
     top_pct=0.2,
@@ -46,8 +47,7 @@ FINAL_PARAMS = dict(
     max_weight=None,
     min_names_per_side=3,
     weight_scheme="rank_inv_vol",
-    risk_adjust_by_vol_in_score=False,
-    # (ablation switches restent True par défaut dans backtest/signals)
+    risk_adjust_by_vol_in_score=False,  # final = score NON risk-adjust (low-vol géré dans les poids)
 )
 
 # =========================
@@ -56,8 +56,11 @@ FINAL_PARAMS = dict(
 OUT_DIR = Path("outs")
 FIG_DIR = OUT_DIR / "figures"
 TAB_DIR = OUT_DIR / "tables"
+SIG_DIR = Path("signals")  # ✅ pour les poids latest (comme ton notebook)
+
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 TAB_DIR.mkdir(parents=True, exist_ok=True)
+SIG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def save_df(df: pd.DataFrame, name: str):
@@ -112,11 +115,18 @@ def plot_and_save_drawdown(ret_dict: dict, filename: str, title: str):
     print(f"✅ saved {FIG_DIR/filename}")
 
 
+def save_latest_weights_csv(as_of_date: pd.Timestamp, weights: pd.Series, variant: str) -> Path:
+    date_str = pd.to_datetime(as_of_date).strftime("%Y-%m-%d")
+    path = SIG_DIR / f"weights_{variant}_{date_str}.csv"
+    pd.DataFrame({"date": [date_str] * len(weights), "ticker": weights.index, "weight": weights.values}).to_csv(path, index=False)
+    print(f"✅ saved {path}")
+    return path
+
+
 # =========================
 # 3) MAIN PIPELINE
 # =========================
 def main():
-    # 1) Data
     prices, volumes = get_prices_and_volume(
         tickers=UNIVERSE,
         start=START_DATE,
@@ -124,36 +134,21 @@ def main():
     )
     print(f"✅ Prix téléchargés: {prices.shape[0]} dates x {prices.shape[1]} tickers")
 
-    # 2) Backtest final + exports
-    ret_final, w_final, met_final = backtest_pocheA_momentum(
-        prices=prices,
-        volumes=volumes,
-        **FINAL_PARAMS,
-    )
-
+    # --- FINAL
+    ret_final, w_final, met_final = backtest_pocheA_momentum(prices=prices, volumes=volumes, **FINAL_PARAMS)
     save_series(ret_final, "returns_final.csv")
     save_df(metrics_dict_to_df(met_final, "final"), "perf_final.csv")
     plot_and_save_equity({"final": ret_final}, "equity_final.png", "Equity curve — Final")
     plot_and_save_drawdown({"final": ret_final}, "drawdown_final.png", "Drawdown — Final")
 
-    # 3) Comparaison "comme notebook" :
-    # A) Equal-weight + score risk-adjust
-    # B) Final = Rank*Inv-Vol + score NON risk-adjust
+    # --- Equal-weight (✅ comme ton notebook: score risk-adjust)
     params_equal = FINAL_PARAMS.copy()
     params_equal["weight_scheme"] = "equal"
-    params_equal["risk_adjust_by_vol_in_score"] = True  # ✅ LA CORRECTION CLÉ
-
-    ret_equal, w_equal, met_equal = backtest_pocheA_momentum(
-        prices=prices,
-        volumes=volumes,
-        **params_equal,
-    )
+    params_equal["risk_adjust_by_vol_in_score"] = True  # ✅ IMPORTANT
+    ret_equal, w_equal, met_equal = backtest_pocheA_momentum(prices=prices, volumes=volumes, **params_equal)
 
     cmp = pd.concat(
-        [
-            metrics_dict_to_df(met_equal, "equal_weight_score_risk_adjust"),
-            metrics_dict_to_df(met_final, "rank_inv_vol_score_non_risk_adjust"),
-        ],
+        [metrics_dict_to_df(met_equal, "equal_weight"), metrics_dict_to_df(met_final, "rank_inv_vol")],
         axis=0,
     )
     save_df(cmp, "weighting_comparison.csv")
@@ -161,20 +156,18 @@ def main():
     plot_and_save_equity(
         {"equal_weight": ret_equal, "rank_inv_vol": ret_final},
         "equity_equal_vs_invvol.png",
-        "Equity — Equal-weight (risk-adjust score) vs Rank/Inv-Vol (final)",
+        "Equity curve — Equal-weight vs Rank/Inv-Vol",
     )
     plot_and_save_drawdown(
         {"equal_weight": ret_equal, "rank_inv_vol": ret_final},
         "drawdown_equal_vs_invvol.png",
-        "Drawdown — Equal-weight (risk-adjust score) vs Rank/Inv-Vol (final)",
+        "Drawdown — Equal-weight vs Rank/Inv-Vol",
     )
 
-    # 4) Sensibilité hyperparamètres
+    # --- Grid / subperiods / CAPM / FF3 / Ablation (comme avant)
     grid = hyperparam_grid_search(
-        prices=prices,
-        volumes=volumes,
-        top_list=(0.1, 0.2),
-        bottom_list=(0.2, 0.4),
+        prices=prices, volumes=volumes,
+        top_list=(0.1, 0.2), bottom_list=(0.2, 0.4),
         exposure_list=((0.5, 0.5), (0.7, 0.3)),
         weight_scheme="rank_inv_vol",
         risk_adjust_by_vol_in_score=False,
@@ -182,50 +175,31 @@ def main():
     save_df(grid, "sensitivity_grid_full.csv")
     save_df(grid.sort_values("Sharpe", ascending=False).head(10), "sensitivity_best_top10.csv")
 
-    # 5) Sous-périodes
     sub = run_subperiods_table(
-        prices=prices,
-        volumes=volumes,
-        periods=[
-            ("2010-01-01", "2014-12-31"),
-            ("2015-01-01", "2019-12-31"),
-            ("2020-01-01", "2024-12-31"),
-        ],
-        long_expo=0.7,
-        short_expo=0.3,
+        prices=prices, volumes=volumes,
+        periods=[("2010-01-01", "2014-12-31"), ("2015-01-01", "2019-12-31"), ("2020-01-01", "2024-12-31")],
+        long_expo=0.7, short_expo=0.3,
         weight_scheme="rank_inv_vol",
         risk_adjust_by_vol_in_score=False,
     )
     save_df(sub, "subperiods_table.csv")
 
-    # 6) CAPM: 70/30 vs 50/50
     capm_cmp = compare_exposures_capm(
-        prices=prices,
-        volumes=volumes,
+        prices=prices, volumes=volumes,
         weight_scheme="rank_inv_vol",
         risk_adjust_by_vol_in_score=False,
     )
     save_df(capm_cmp, "capm_7030_vs_5050.csv")
 
-    # 7) FF3 sur la stratégie finale
     ret_ff, met_ff, ff_stats = analyse_ff3_sur_strategie(
-        prices=prices,
-        volumes=volumes,
-        long_expo=0.7,
-        short_expo=0.3,
+        prices=prices, volumes=volumes,
+        long_expo=0.7, short_expo=0.3,
         weight_scheme="rank_inv_vol",
         risk_adjust_by_vol_in_score=False,
     )
-    ff_df = pd.DataFrame([ff_stats])
-    save_df(ff_df, "ff3_loadings_final.csv")
+    save_df(pd.DataFrame([ff_stats]), "ff3_loadings_final.csv")
 
-    # 8) Ablation (si backtest/signals supportent use_rsi/use_volume_penalty)
-    ablation = run_ablation_tests(
-        prices=prices,
-        volumes=volumes,
-        weight_scheme="rank_inv_vol",
-        risk_adjust_by_vol_in_score=False,
-    )
+    ablation = run_ablation_tests(prices, volumes)
     save_df(ablation.set_index("variant"), "ablation_final.csv")
 
     plt.figure()
@@ -235,9 +209,46 @@ def main():
     plt.tight_layout()
     plt.savefig(FIG_DIR / "ablation_sharpe_bar.png", dpi=200)
     plt.close()
-    print(f"✅ saved {FIG_DIR/'ablation_sharpe_bar.png'}")
 
-    print("\n✅ FIN : regarde outs/figures et outs/tables")
+    # =========================
+    # ✅ LATEST WEIGHTS (comme ton notebook)
+    # =========================
+    as_of = prices.index.max()
+    returns = prices.pct_change().replace([float("inf"), float("-inf")], pd.NA).fillna(0.0)
+
+    # A) equal : score risk-adjust True + poids equal
+    scores_eq = momentum_scores_pocheA(prices, volumes, lookback_days=60, as_of_date=as_of, risk_adjust_by_vol=True)
+    w_eq_latest = compute_weights_from_scores(
+        scores=scores_eq.reindex(prices.columns),
+        returns=returns.loc[:as_of, prices.columns],
+        vol_window=20,
+        top_pct=0.2,
+        bottom_pct=0.4,
+        long_exposure=0.7,
+        short_exposure=0.3,
+        weight_scheme="equal",
+        max_weight=None,
+        min_names_per_side=3,
+    ).reindex(prices.columns).fillna(0.0)
+    save_latest_weights_csv(as_of, w_eq_latest, "equal")
+
+    # B) invvol : score risk-adjust False + poids rank_inv_vol
+    scores_iv = momentum_scores_pocheA(prices, volumes, lookback_days=60, as_of_date=as_of, risk_adjust_by_vol=False)
+    w_iv_latest = compute_weights_from_scores(
+        scores=scores_iv.reindex(prices.columns),
+        returns=returns.loc[:as_of, prices.columns],
+        vol_window=20,
+        top_pct=0.2,
+        bottom_pct=0.4,
+        long_exposure=0.7,
+        short_exposure=0.3,
+        weight_scheme="rank_inv_vol",
+        max_weight=None,
+        min_names_per_side=3,
+    ).reindex(prices.columns).fillna(0.0)
+    save_latest_weights_csv(as_of, w_iv_latest, "invvol")
+
+    print("\n✅ FIN : regarde outs/figures, outs/tables et signals/")
 
 
 if __name__ == "__main__":
