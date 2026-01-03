@@ -12,11 +12,6 @@ from .portfolio import compute_weights_from_scores
 
 
 def get_rebalance_dates(prices: pd.DataFrame, freq: str = "M") -> pd.DatetimeIndex:
-    """
-    Copie fidèle notebook:
-    - anchor = dernier jour dispo par période (M => fin de mois)
-    - mapping sur les jours de bourse via method="pad"
-    """
     idx = prices.index
     if freq == "M":
         anchor = prices.resample("M").last().index
@@ -31,9 +26,6 @@ def get_rebalance_dates(prices: pd.DataFrame, freq: str = "M") -> pd.DatetimeInd
 
 
 def performance_metrics(daily_returns: pd.Series) -> Dict[str, float]:
-    """
-    Copie fidèle notebook: CAGR, vol ann., Sharpe ann., max drawdown, total return
-    """
     r = daily_returns.dropna()
     if r.empty:
         return {}
@@ -66,7 +58,7 @@ def backtest_pocheA_momentum(
     lookback_days: int = 60,
     top_pct: float = 0.2,
     bottom_pct: float = 0.4,
-    vol_scale: bool = False,  # conservé pour compat notebook
+    vol_scale: bool = False,
     vol_window: int = 20,
     long_exposure: float = 0.7,
     short_exposure: float = 0.3,
@@ -74,17 +66,15 @@ def backtest_pocheA_momentum(
     transaction_cost_bps: float = 8.0,
     max_weight: Optional[float] = None,
     min_names_per_side: int = 3,
-    risk_adjust_by_vol_in_score: bool = True,  # ✅ default notebook
+    risk_adjust_by_vol_in_score: bool = True,
     weight_scheme: str = "rank_inv_vol",
+
+    # ✅ pour ablation
+    use_rsi: bool = True,
+    use_volume_penalty: bool = True,
+    volume_threshold: float = 500_000.0,
+    volume_penalty_factor: float = 0.5,
 ) -> Tuple[pd.Series, pd.DataFrame, Dict[str, float]]:
-    """
-    Copie fidèle notebook:
-    - returns = pct_change().replace(inf).fillna(0)
-    - recalcul score à chaque rebal
-    - weights via compute_weights_from_scores(...)
-    - turnover = sum(abs(w - w_prev))
-    - tc = turnover * (bps/1e4), payé le 1er jour après rebal
-    """
     prices = prices.dropna(how="all").sort_index()
     volumes = volumes.dropna(how="all").sort_index()
 
@@ -102,18 +92,20 @@ def backtest_pocheA_momentum(
         if idx < lookback_days:
             continue
 
-        # 1) score
         scores = momentum_scores_pocheA(
             prices=prices,
             volumes=volumes,
             lookback_days=lookback_days,
             as_of_date=reb_date,
             risk_adjust_by_vol=risk_adjust_by_vol_in_score,
+            use_rsi=use_rsi,
+            use_volume_penalty=use_volume_penalty,
+            volume_threshold=volume_threshold,
+            volume_penalty_factor=volume_penalty_factor,
         )
         if scores.empty:
             continue
 
-        # 2) poids
         weights = compute_weights_from_scores(
             scores=scores.reindex(prices.columns),
             returns=returns[prices.columns].loc[:reb_date],
@@ -130,20 +122,17 @@ def backtest_pocheA_momentum(
 
         weights_history.append(pd.DataFrame({"date": reb_date, **weights.to_dict()}, index=[0]))
 
-        # 3) turnover + TC
         turnover = (weights - prev_weights).abs().sum()
         tc = turnover * (transaction_cost_bps / 1e4)
 
-        # 4) appliquer jusqu'au prochain rebal
-        start_idx = idx
         end_date = rebal_dates[i + 1] if i + 1 < len(rebal_dates) else prices.index.max()
         end_idx = prices.index.get_loc(end_date)
-        period = returns.iloc[start_idx + 1 : end_idx + 1]
+        period = returns.iloc[idx + 1 : end_idx + 1]
 
         if not period.empty:
             pret = period.dot(weights)
             if turnover > 0:
-                pret.iloc[0] -= tc  # coût payé J+1
+                pret.iloc[0] -= tc
             daily_portfolio_returns.loc[pret.index] = pret.values
 
         prev_weights = weights
