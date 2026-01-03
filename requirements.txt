@@ -1,0 +1,7 @@
+numpy
+pandas
+matplotlib
+yfinance
+statsmodels
+pandas_datareader
+scipy
