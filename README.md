@@ -1,6 +1,6 @@
 # Stratégie Momentum Long/Short
 
- Objectif
+ ## Objectif
 Ce projet implémente et backteste une stratégie momentum long/short sur un univers actions US large caps (liste proche du S&P 100).  
 L’objectif est de construire un portefeuille long/short basé sur un **score momentum composite**, puis d’évaluer la performance, le risque et les expositions factorielles (CAPM / Fama–French).
 
