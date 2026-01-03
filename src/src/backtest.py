@@ -75,6 +75,9 @@ def backtest_pocheA_momentum(
     min_names_per_side: int = 3,
     risk_adjust_by_vol_in_score: bool = False,
     weight_scheme: str = "rank_inv_vol",
+    # ✅ NEW : pour ablation
+    use_rsi: bool = True,
+    use_volume_penalty: bool = True,
 ) -> Tuple[pd.Series, pd.DataFrame, Dict[str, float]]:
     """
     Backtest long/short :
@@ -108,6 +111,9 @@ def backtest_pocheA_momentum(
             lookback_days=lookback_days,
             as_of_date=reb_date,
             risk_adjust_by_vol=risk_adjust_by_vol_in_score,
+            # ✅ NEW : flags ablation
+            use_rsi=use_rsi,
+            use_volume_penalty=use_volume_penalty,
         )
         if scores.empty:
             continue
@@ -139,10 +145,7 @@ def backtest_pocheA_momentum(
 
         if not period.empty:
             pret = period.dot(weights)
-
-            # coût payé le 1er jour après rebal
-            pret.iloc[0] -= tc
-
+            pret.iloc[0] -= tc  # coût payé le 1er jour après rebal
             daily_portfolio_returns.loc[pret.index] = pret.values
 
         prev_weights = weights
