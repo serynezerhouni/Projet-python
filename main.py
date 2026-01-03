@@ -20,7 +20,6 @@ from src.analysis import (
 # 1) CONFIG PROJET
 # =========================
 
-# Univers (mets exactement ta liste)
 UNIVERSE = [
     "AAPL","ABBV","ABT","ACN","ADBE","AIG","AMD","AMGN","AMT","AMZN","AVGO","AXP","BA","BAC","BK",
     "BKNG","BLK","BMY","BRK-B","C","CAT","CL","CMCSA","COF","COP","COST","CRM","CSCO","CVS","CVX",
@@ -34,7 +33,7 @@ UNIVERSE = [
 START_DATE = "2010-01-01"
 END_DATE = None  # None = jusqu'à aujourd'hui
 
-# Produit final (ce que tu m’as donné)
+# Produit final = low-vol géré dans les poids (rank * inv-vol), donc score NON risk-adjust
 FINAL_PARAMS = dict(
     lookback_days=60,
     top_pct=0.2,
@@ -48,6 +47,7 @@ FINAL_PARAMS = dict(
     min_names_per_side=3,
     weight_scheme="rank_inv_vol",
     risk_adjust_by_vol_in_score=False,
+    # (ablation switches restent True par défaut dans backtest/signals)
 )
 
 # =========================
@@ -116,7 +116,7 @@ def plot_and_save_drawdown(ret_dict: dict, filename: str, title: str):
 # 3) MAIN PIPELINE
 # =========================
 def main():
-    # 1) Data (IMPORTANT: on passe tickers=UNIVERSE)
+    # 1) Data
     prices, volumes = get_prices_and_volume(
         tickers=UNIVERSE,
         start=START_DATE,
@@ -136,10 +136,13 @@ def main():
     plot_and_save_equity({"final": ret_final}, "equity_final.png", "Equity curve — Final")
     plot_and_save_drawdown({"final": ret_final}, "drawdown_final.png", "Drawdown — Final")
 
-    # 3) Comparaison equal-weight vs final (mêmes params sinon)
+    # 3) Comparaison "comme notebook" :
+    # A) Equal-weight + score risk-adjust
+    # B) Final = Rank*Inv-Vol + score NON risk-adjust
     params_equal = FINAL_PARAMS.copy()
     params_equal["weight_scheme"] = "equal"
-    # (le score reste non risk-adjust; on compare juste la pondération)
+    params_equal["risk_adjust_by_vol_in_score"] = True  # ✅ LA CORRECTION CLÉ
+
     ret_equal, w_equal, met_equal = backtest_pocheA_momentum(
         prices=prices,
         volumes=volumes,
@@ -148,8 +151,8 @@ def main():
 
     cmp = pd.concat(
         [
-            metrics_dict_to_df(met_equal, "equal_weight"),
-            metrics_dict_to_df(met_final, "rank_inv_vol"),
+            metrics_dict_to_df(met_equal, "equal_weight_score_risk_adjust"),
+            metrics_dict_to_df(met_final, "rank_inv_vol_score_non_risk_adjust"),
         ],
         axis=0,
     )
@@ -158,12 +161,12 @@ def main():
     plot_and_save_equity(
         {"equal_weight": ret_equal, "rank_inv_vol": ret_final},
         "equity_equal_vs_invvol.png",
-        "Equity curve — Equal-weight vs Rank/Inv-Vol",
+        "Equity — Equal-weight (risk-adjust score) vs Rank/Inv-Vol (final)",
     )
     plot_and_save_drawdown(
         {"equal_weight": ret_equal, "rank_inv_vol": ret_final},
         "drawdown_equal_vs_invvol.png",
-        "Drawdown — Equal-weight vs Rank/Inv-Vol",
+        "Drawdown — Equal-weight (risk-adjust score) vs Rank/Inv-Vol (final)",
     )
 
     # 4) Sensibilité hyperparamètres
@@ -216,11 +219,15 @@ def main():
     ff_df = pd.DataFrame([ff_stats])
     save_df(ff_df, "ff3_loadings_final.csv")
 
-    # 8) Ablation
-    ablation = run_ablation_tests(prices, volumes)
+    # 8) Ablation (si backtest/signals supportent use_rsi/use_volume_penalty)
+    ablation = run_ablation_tests(
+        prices=prices,
+        volumes=volumes,
+        weight_scheme="rank_inv_vol",
+        risk_adjust_by_vol_in_score=False,
+    )
     save_df(ablation.set_index("variant"), "ablation_final.csv")
 
-    # Barplot Sharpe ablation
     plt.figure()
     plt.bar(ablation["variant"], ablation["Sharpe"])
     plt.xticks(rotation=30, ha="right")
