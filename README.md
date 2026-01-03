@@ -72,7 +72,6 @@ Le coût est déduit **le premier jour** après chaque rebalancement.
 
 ## Analyses incluses (robustesse / diagnostics)
 Le notebook inclut :
-- Fréquence à laquelle le filtre volume est “binding”
 - Comparaison **70/30 vs 50/50** (performance + beta marché via CAPM)
 - Régressions **CAPM** et **Fama–French 3 facteurs** (alpha, beta, loadings, R²)
 - Analyse par sous-périodes : 2010–2014, 2015–2019, 2020–2024
