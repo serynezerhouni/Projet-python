@@ -1,5 +1,5 @@
 # Projet-python
-# Stratégie Momentum Long/Short — “Poche A” (US Large Caps)
+# Stratégie Momentum Long/Short
 
 ## Objectif
 Ce projet implémente et backteste une stratégie **momentum long/short** sur un univers actions US large caps (liste proche du S&P 100).  
