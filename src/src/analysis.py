@@ -129,7 +129,10 @@ def get_ff3_factors(start_date: str, end_date: str) -> pd.DataFrame:
     return ff[["Mkt-RF", "SMB", "HML", "RF"]]
 
 
-def run_ff3(portfolio_returns: pd.Series, ff: pd.DataFrame) -> Tuple[Dict[str, float], sm.regression.linear_model.RegressionResultsWrapper]:
+def run_ff3(
+    portfolio_returns: pd.Series,
+    ff: pd.DataFrame
+) -> Tuple[Dict[str, float], sm.regression.linear_model.RegressionResultsWrapper]:
     """
     (Rp - RF) = alpha + b_m(Mkt-RF) + b_s(SMB) + b_h(HML) + eps
     """
@@ -309,7 +312,7 @@ def hyperparam_grid_search(
 
 
 # =========================================
-# Ablation (alignée final)
+# Ablation (ALIGNÉE PRODUIT FINAL) ✅
 # =========================================
 
 def run_ablation_tests(
@@ -326,28 +329,51 @@ def run_ablation_tests(
     min_names_per_side: int = 3,
     weight_scheme: str = "rank_inv_vol",
     risk_adjust_by_vol_in_score: bool = False,
-    use_rsi_list=(True, False),
-    use_volume_list=(True, False),
 ) -> pd.DataFrame:
     """
-    On utilise le même backtest, mais on change les flags du score via signals.py.
-    => Pour ça il faut que signals.py expose use_rsi/use_volume_penalty (c'est ton cas).
+    Ablation alignée sur le produit final :
+    - poids = rank_inv_vol
+    - expo = 70/30
+    - top/bottom = 0.2/0.4
+    - TC = 8 bps
+    - rebal = mensuel
+    - score NON risk-adjust (risk_adjust_by_vol_in_score=False)
+    Variantes : baseline, no_RSI, no_volume, no_RSI_no_volume
     """
-    from .signals import momentum_scores_pocheA  # import local
-
-    def backtest_with_flags(use_rsi: bool, use_vol: bool):
-        # wrapper : on monkey-patch en passant les flags dans momentum_scores_pocheA
-        # via backtest_pocheA_momentum -> ça passe car backtest appelle momentum_scores_pocheA
-        # qui a déjà les paramètres use_rsi/use_volume_penalty avec valeurs par défaut.
-        # Ici on ne peut pas les injecter sans modifier backtest.
-        # Donc : on renvoie juste une table "design", et on te conseille de faire l'ablation
-        # directement dans le notebook en appelant momentum_scores_pocheA(...).
-        return None
+    configs = [
+        ("baseline_final", True, True),
+        ("no_RSI", False, True),
+        ("no_volume", True, False),
+        ("no_RSI_no_volume", False, False),
+    ]
 
     rows = []
-    for use_rsi in use_rsi_list:
-        for use_vol in use_volume_list:
-            label = f"rsi_{int(use_rsi)}_vol_{int(use_vol)}"
-            rows.append({"variant": label})
+    for name, use_rsi, use_vol in configs:
+        ret, w_df, m = backtest_pocheA_momentum(
+            prices=prices,
+            volumes=volumes,
+            lookback_days=60,
+            top_pct=top_pct,
+            bottom_pct=bottom_pct,
+            vol_window=vol_window,
+            long_exposure=long_exposure,
+            short_exposure=short_exposure,
+            rebal_freq=rebal_freq,
+            transaction_cost_bps=transaction_cost_bps,
+            max_weight=max_weight,
+            min_names_per_side=min_names_per_side,
+            risk_adjust_by_vol_in_score=risk_adjust_by_vol_in_score,
+            weight_scheme=weight_scheme,
+            use_rsi=use_rsi,
+            use_volume_penalty=use_vol,
+        )
+
+        rows.append({
+            "variant": name,
+            "CAGR": m.get("CAGR", np.nan),
+            "Sharpe": m.get("Sharpe (ann.)", np.nan),
+            "Vol": m.get("Volatility (ann.)", np.nan),
+            "MaxDD": m.get("Max Drawdown", np.nan),
+        })
 
     return pd.DataFrame(rows)
