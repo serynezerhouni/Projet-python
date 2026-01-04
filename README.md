@@ -24,4 +24,17 @@ Dans un notebook Colab, exécuter :
 %cd Projet-python
 !pip -q install -r requirements.txt
 !python main.py 
+```
+Où trouver les résultats :
+	•	Tableaux CSV : outs/tables/
+	•	Figures (PNG) : outs/figures/
+	•	Poids “latest” : signals/
+  
+Télécharger toutes les sorties :
+  ```bash
+import shutil
+from google.colab import files
+shutil.make_archive("outs", "zip", "outs")
+files.download("outs.zip")
+```
 
