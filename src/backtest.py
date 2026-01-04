@@ -69,7 +69,7 @@ def backtest_pocheA_momentum(
     risk_adjust_by_vol_in_score: bool = True,
     weight_scheme: str = "rank_inv_vol",
 
-    # ✅ pour ablation
+    #  pour ablation
     use_rsi: bool = True,
     use_volume_penalty: bool = True,
     volume_threshold: float = 500_000.0,
