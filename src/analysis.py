@@ -107,6 +107,7 @@ def compare_exposures_capm(
             "Sharpe": met.get("Sharpe (ann.)", np.nan),
             "Vol": met.get("Volatility (ann.)", np.nan),
             "MaxDD": met.get("Max Drawdown", np.nan),
+            "Avg Turnover": met.get("Avg Turnover", np.nan), 
             "beta_mkt": capm_stats["beta"],
             "alpha_ann": capm_stats["alpha_ann"],
             "R2_CAPM": capm_stats["r2"],
@@ -312,7 +313,7 @@ def hyperparam_grid_search(
 
 
 # =========================================
-# Ablation (ALIGNÉE PRODUIT FINAL) ✅
+# Ablation
 # =========================================
 
 def run_ablation_tests(
