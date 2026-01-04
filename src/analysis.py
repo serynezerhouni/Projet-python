@@ -201,7 +201,7 @@ def analyse_ff3_sur_strategie(
 
 
 # =========================================
-# Robustesse : sous-périodes
+# Analyse des sous-périodes
 # =========================================
 
 def run_subperiods_table(
@@ -262,7 +262,7 @@ def run_subperiods_table(
 
 
 # =========================================
-# Sensibilité hyperparamètres (grid)
+# Sensibilité hyperparamètres
 # =========================================
 
 def hyperparam_grid_search(
