@@ -1,6 +1,6 @@
-# Stratégie Momentum Long/Short (Poche A)
+# Stratégie Momentum Long/Short 
 
-Ce projet implémente une stratégie **momentum cross-section** sur un univers d’actions US large caps. Chaque mois, les titres sont classés via un **score momentum** (performance ~6 mois + tendance MA50/MA200), puis on construit un portefeuille long/short : **long sur les meilleurs**, **short sur les moins bons**.
+Ce projet implémente une stratégie momentum cross-section sur un univers d’actions US large caps. Chaque mois, les titres sont classés via un score momentum (performance ~6 mois + tendance MA50/MA200), puis on construit un portefeuille long/short : long sur les meilleurs**, short sur les moins bons.
 
 **Configuration retenue :**
 - Période : 2010 → aujourd’hui
