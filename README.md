@@ -1,6 +1,6 @@
 # Stratégie Momentum Long/Short 
 
-Ce projet implémente une stratégie momentum cross-section sur un univers d’actions US large caps. Chaque mois, les titres sont classés via un score momentum (performance ~6 mois + tendance MA50/MA200), puis on construit un portefeuille long/short : long sur les meilleurs, short sur les moins bons.
+Ce projet implémente une stratégie momentum long/short sur univers large caps US, rebalancée mensuellement : long sur les meilleurs scores, short sur les plus faibles, avec pénalités RSI et volume pour limiter les signaux “fragiles”. La pondération rank × inverse-volatilité permet de concentrer l’exposition sur les convictions tout en réduisant la contribution des titres instables. Les performances et expositions factorielles (CAPM/FF3) sont reportées automatiquement.
 
 **Configuration retenue :**
 - Période : 2010 → aujourd’hui
@@ -11,7 +11,7 @@ Ce projet implémente une stratégie momentum cross-section sur un univers d’a
 - Coûts de transaction : 8 bps appliqués au turnover
 - Données : `yfinance` (prix ajustés + volumes)
 
-Le notebook détaille la littérature, la construction du signal, le backtest et les analyses de robustesse (sensibilité, CAPM/FF3, sous-périodes, ablation, cross-validation), les limites et la conclusion du projet .
+Le notebook présente la littérature, la construction du signal, le backtest, puis les analyses de robustesse (sensibilité, CAPM/FF3, sous-périodes, ablation, train/test), avant de conclure sur les limites et les principaux enseignements.
 
 
 ---
