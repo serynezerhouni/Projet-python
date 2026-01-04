@@ -20,7 +20,7 @@ def momentum_scores_pocheA(
     rsi_penalty_factor: float = 0.5,
     risk_adjust_by_vol: bool = True,
 
-    # ✅ switches ablation
+    #  switches ablation
     use_rsi: bool = True,
     use_volume_penalty: bool = True,
     volume_threshold: float = 500_000.0,
