@@ -15,7 +15,7 @@ from src.analysis import (
     hyperparam_grid_search,
     run_subperiods_table,
     run_ablation_tests,
-    train_test_hyperparams,  # ✅
+    train_test_hyperparams,
 )
 from src.signals import momentum_scores_pocheA
 from src.portfolio import compute_weights_from_scores
@@ -58,7 +58,7 @@ FINAL_PARAMS = dict(
 OUT_DIR = Path("outs")
 FIG_DIR = OUT_DIR / "figures"
 TAB_DIR = OUT_DIR / "tables"
-SIG_DIR = Path("signals")  # ✅ pour les poids latest
+SIG_DIR = Path("signals") 
 
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 TAB_DIR.mkdir(parents=True, exist_ok=True)
@@ -68,13 +68,13 @@ SIG_DIR.mkdir(parents=True, exist_ok=True)
 def save_df(df: pd.DataFrame, name: str):
     path = TAB_DIR / name
     df.to_csv(path, index=True)
-    print(f"✅ saved {path}")
+    print(f" saved {path}")
 
 
 def save_series(s: pd.Series, name: str):
     path = TAB_DIR / name
     s.to_csv(path, header=True)
-    print(f"✅ saved {path}")
+    print(f" saved {path}")
 
 
 def metrics_dict_to_df(metrics: dict, label: str) -> pd.DataFrame:
@@ -100,7 +100,7 @@ def plot_and_save_equity(ret_dict: dict, filename: str, title: str):
     plt.tight_layout()
     plt.savefig(FIG_DIR / filename, dpi=200)
     plt.close()
-    print(f"✅ saved {FIG_DIR/filename}")
+    print(f" saved {FIG_DIR/filename}")
 
 
 def plot_and_save_drawdown(ret_dict: dict, filename: str, title: str):
@@ -114,7 +114,7 @@ def plot_and_save_drawdown(ret_dict: dict, filename: str, title: str):
     plt.tight_layout()
     plt.savefig(FIG_DIR / filename, dpi=200)
     plt.close()
-    print(f"✅ saved {FIG_DIR/filename}")
+    print(f" saved {FIG_DIR/filename}")
 
 
 def save_latest_weights_csv(as_of_date: pd.Timestamp, weights: pd.Series, variant: str) -> Path:
@@ -123,7 +123,7 @@ def save_latest_weights_csv(as_of_date: pd.Timestamp, weights: pd.Series, varian
     pd.DataFrame(
         {"date": [date_str] * len(weights), "ticker": weights.index, "weight": weights.values}
     ).to_csv(path, index=False)
-    print(f"✅ saved {path}")
+    print(f" saved {path}")
     return path
 
 
@@ -136,7 +136,7 @@ def main():
         start=START_DATE,
         end=END_DATE,
     )
-    print(f"✅ Prix téléchargés: {prices.shape[0]} dates x {prices.shape[1]} tickers")
+    print(f" Prix téléchargés: {prices.shape[0]} dates x {prices.shape[1]} tickers")
 
     # --- FINAL
     ret_final, w_final, met_final = backtest_pocheA_momentum(
@@ -147,10 +147,10 @@ def main():
     plot_and_save_equity({"final": ret_final}, "equity_final.png", "Equity curve — Final")
     plot_and_save_drawdown({"final": ret_final}, "drawdown_final.png", "Drawdown — Final")
 
-    # --- Equal-weight (✅ notebook: score risk-adjust True + poids equal)
+    # --- Equal-weight ( notebook: score risk-adjust True + poids equal)
     params_equal = FINAL_PARAMS.copy()
     params_equal["weight_scheme"] = "equal"
-    params_equal["risk_adjust_by_vol_in_score"] = True  # ✅ IMPORTANT
+    params_equal["risk_adjust_by_vol_in_score"] = True  #  IMPORTANT
     ret_equal, w_equal, met_equal = backtest_pocheA_momentum(
         prices=prices, volumes=volumes, **params_equal
     )
@@ -236,7 +236,7 @@ def main():
     plt.close()
 
     # =========================
-    # 9) Train/Test : calibration 2010-2019, test OOS 2020-2024 ✅
+    # 9) Train/Test : calibration 2010-2019, test OOS 2020-2024 
     # =========================
     grid_train, best_params, met_oos, ret_oos = train_test_hyperparams(
         prices=prices,
@@ -276,7 +276,7 @@ def main():
     )
 
     # =========================
-    # LATEST WEIGHTS (comme ton notebook)
+    # LATEST WEIGHTS
     # =========================
     as_of = prices.index.max()
     returns = prices.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)
@@ -317,7 +317,7 @@ def main():
     ).reindex(prices.columns).fillna(0.0)
     save_latest_weights_csv(as_of, w_iv_latest, "invvol")
 
-    print("\n✅ FIN : regarde outs/figures, outs/tables et signals/")
+    print("\n FIN")
 
 
 if __name__ == "__main__":
