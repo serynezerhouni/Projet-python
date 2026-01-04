@@ -78,13 +78,24 @@ Le notebook inclut :
 - Analyse de sensibilité (TOP/BOTTOM/exposition)
 - Ablation study : impact de RSI, volume, et du risk-adjust du score
 
-## Exécution
-### Option A — Google Colab
-1) Ouvrir le notebook dans `notebooks/`
-2) Exécuter toutes les cellules
-3) Les sorties (tableaux/graphes + poids) sont sauvegardées dans `signals/` (ou `outputs/` selon la config)
+---
 
-### Option B — Local
-Installer les dépendances :
+## Exécution (Google Colab)
+Dans un notebook Colab, exécuter :
+
 ```bash
-pip install -r requirements.txt
+!git clone https://github.com/serynezerhouni/Projet-python.git
+%cd Projet-python
+!pip -q install -r requirements.txt
+!python main.py
+
+Où trouver les résultats :
+	•	Tableaux CSV : outs/tables/
+	•	Figures (PNG) : outs/figures/
+	•	Poids “latest” (fichiers de signaux) : signals/
+
+Télécharger toutes les sorties :
+import shutil
+from google.colab import files
+shutil.make_archive("outs", "zip", "outs")
+files.download("outs.zip")
