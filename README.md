@@ -49,7 +49,6 @@ Coût = turnover × (8 / 10 000), déduit au premier jour après rebalancement.
 
 ## Exécution (Google Colab)
 Dans un notebook Colab, exécuter :
-
 ```bash
 !git clone https://github.com/serynezerhouni/Projet-python.git
 %cd Projet-python
@@ -57,14 +56,7 @@ Dans un notebook Colab, exécuter :
 !python main.py
 ---
 
-## Exécution (Google Colab)
-Dans un notebook Colab, exécuter :
 
-```bash
-!git clone https://github.com/serynezerhouni/Projet-python.git
-%cd Projet-python
-!pip -q install -r requirements.txt
-!python main.py
 
 Où trouver les résultats :
 	•	Tableaux CSV : outs/tables/
