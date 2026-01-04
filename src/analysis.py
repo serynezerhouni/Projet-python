@@ -378,3 +378,156 @@ def run_ablation_tests(
         })
 
     return pd.DataFrame(rows)
+# =========================================
+# Train/Test (calibration 2010-2019, OOS 2020-2024)
+# =========================================
+
+from typing import Any  # optionnel
+
+def slice_data(
+    prices: pd.DataFrame,
+    volumes: pd.DataFrame,
+    start_date: str,
+    end_date: str
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    p_sub = prices.loc[start_date:end_date].copy()
+    v_sub = volumes.loc[start_date:end_date].copy()
+    if p_sub.empty:
+        raise ValueError(f"Période vide entre {start_date} et {end_date}")
+    return p_sub, v_sub
+
+
+def grid_search_on_period(
+    prices: pd.DataFrame,
+    volumes: pd.DataFrame,
+    start_date: str,
+    end_date: str,
+    top_list=(0.1, 0.2),
+    bottom_list=(0.2, 0.4),
+    long_list=(0.5, 0.7),
+    short_list=(0.5, 0.3),
+    lookback_days: int = 60,
+    vol_window: int = 20,
+    rebal_freq: str = "M",
+    transaction_cost_bps: float = 8.0,
+    max_weight: Optional[float] = None,
+    min_names_per_side: int = 3,
+    weight_scheme: str = "rank_inv_vol",
+    risk_adjust_by_vol_in_score: bool = False,
+) -> pd.DataFrame:
+    """
+    Grid-search sur une sous-période donnée.
+    """
+    p_sub, v_sub = slice_data(prices, volumes, start_date, end_date)
+
+    rows = []
+    for tp in top_list:
+        for bp in bottom_list:
+            for L in long_list:
+                for S in short_list:
+                    # combinaisons propres (ex: 0.5/0.5 ou 0.7/0.3)
+                    if abs((L + S) - 1.0) > 1e-9:
+                        continue
+
+                    ret, w_df, met = backtest_pocheA_momentum(
+                        prices=p_sub,
+                        volumes=v_sub,
+                        lookback_days=lookback_days,
+                        top_pct=tp,
+                        bottom_pct=bp,
+                        vol_window=vol_window,
+                        long_exposure=L,
+                        short_exposure=S,
+                        rebal_freq=rebal_freq,
+                        transaction_cost_bps=transaction_cost_bps,
+                        max_weight=max_weight,
+                        min_names_per_side=min_names_per_side,
+                        risk_adjust_by_vol_in_score=risk_adjust_by_vol_in_score,
+                        weight_scheme=weight_scheme,
+                    )
+
+                    rows.append({
+                        "TOP_PCT": tp,
+                        "BOTTOM_PCT": bp,
+                        "L": L,
+                        "S": S,
+                        "CAGR": met.get("CAGR", np.nan),
+                        "Sharpe": met.get("Sharpe (ann.)", np.nan),
+                        "Vol": met.get("Volatility (ann.)", np.nan),
+                        "MaxDD": met.get("Max Drawdown", np.nan),
+                        "Avg Turnover": met.get("Avg Turnover", np.nan),
+                    })
+
+    return (
+        pd.DataFrame(rows)
+        .sort_values("Sharpe", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def train_test_hyperparams(
+    prices: pd.DataFrame,
+    volumes: pd.DataFrame,
+    train_start: str = "2010-01-01",
+    train_end: str = "2019-12-31",
+    test_start: str = "2020-01-01",
+    test_end: str = "2024-12-31",
+    top_list=(0.1, 0.2),
+    bottom_list=(0.2, 0.4),
+    long_list=(0.5, 0.7),
+    short_list=(0.5, 0.3),
+    lookback_days: int = 60,
+    vol_window: int = 20,
+    rebal_freq: str = "M",
+    transaction_cost_bps: float = 8.0,
+    max_weight: Optional[float] = None,
+    min_names_per_side: int = 3,
+    weight_scheme: str = "rank_inv_vol",
+    risk_adjust_by_vol_in_score: bool = False,
+) -> Tuple[pd.DataFrame, pd.Series, Dict[str, float], pd.Series]:
+    """
+    1) Grid-search sur train
+    2) Sélection du meilleur set
+    3) Backtest OOS sur test avec ce set
+    """
+    grid_train = grid_search_on_period(
+        prices=prices,
+        volumes=volumes,
+        start_date=train_start,
+        end_date=train_end,
+        top_list=top_list,
+        bottom_list=bottom_list,
+        long_list=long_list,
+        short_list=short_list,
+        lookback_days=lookback_days,
+        vol_window=vol_window,
+        rebal_freq=rebal_freq,
+        transaction_cost_bps=transaction_cost_bps,
+        max_weight=max_weight,
+        min_names_per_side=min_names_per_side,
+        weight_scheme=weight_scheme,
+        risk_adjust_by_vol_in_score=risk_adjust_by_vol_in_score,
+    )
+
+    best = grid_train.iloc[0]
+
+    p_test, v_test = slice_data(prices, volumes, test_start, test_end)
+
+    ret_test, w_test, met_test = backtest_pocheA_momentum(
+        prices=p_test,
+        volumes=v_test,
+        lookback_days=lookback_days,
+        top_pct=float(best["TOP_PCT"]),
+        bottom_pct=float(best["BOTTOM_PCT"]),
+        vol_window=vol_window,
+        long_exposure=float(best["L"]),
+        short_exposure=float(best["S"]),
+        rebal_freq=rebal_freq,
+        transaction_cost_bps=transaction_cost_bps,
+        max_weight=max_weight,
+        min_names_per_side=min_names_per_side,
+        risk_adjust_by_vol_in_score=risk_adjust_by_vol_in_score,
+        weight_scheme=weight_scheme,
+    )
+
+    return grid_train, best, met_test, ret_test
