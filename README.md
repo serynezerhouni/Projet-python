@@ -23,16 +23,5 @@ Dans un notebook Colab, exécuter :
 !git clone https://github.com/serynezerhouni/Projet-python.git
 %cd Projet-python
 !pip -q install -r requirements.txt
-!python main.py
+!python main.py 
 
-Où trouver les résultats :
-	•	Tableaux CSV : outs/tables/
-	•	Figures (PNG) : outs/figures/
-	•	Poids “latest” : signals/
-
-Télécharger toutes les sorties :
-import shutil
-from google.colab import files
-
-shutil.make_archive("outs", "zip", "outs")
-files.download("outs.zip")
