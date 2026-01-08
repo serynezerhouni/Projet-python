@@ -47,7 +47,7 @@ def get_prices_and_volume(
     close = close.dropna(how="all").sort_index()
     volume = volume.dropna(how="all").sort_index()
 
-    # garantir l'ordre des colonnes = tickers (et ajouter NaN si un ticker manque)
+  
     for t in tickers:
         if t not in close.columns:
             close[t] = np.nan
