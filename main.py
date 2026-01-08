@@ -35,7 +35,7 @@ UNIVERSE = [
 ]
 
 START_DATE = "2010-01-01"
-END_DATE = None  # None = jusqu'à aujourd'hui
+END_DATE = None  
 
 FINAL_PARAMS = dict(
     lookback_days=60,
