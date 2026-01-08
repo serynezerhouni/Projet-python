@@ -5,7 +5,7 @@ Ce projet implémente une stratégie momentum long/short sur un univers de large
 - short sur les plus faibles, 
 - avec des pénalités RSI et volume pour limiter les signaux “fragiles”.  
 
-La pondération *rank × inverse-volatilité* permet de concentrer l’exposition sur les convictions tout en réduisant la contribution des titres les plus instables.
+La pondération rank × inverse-volatilité permet de concentrer l’exposition sur les convictions tout en réduisant la contribution des titres les plus instables.
 
 **Configuration retenue :**
 - Période : 2010 → aujourd’hui
@@ -19,7 +19,7 @@ La pondération *rank × inverse-volatilité* permet de concentrer l’expositio
 Le notebook présente la littérature, la construction du signal et du portefeuille, le backtest, puis les analyses de robustesse (sensibilité, CAPM/FF3, sous-périodes, ablation, train/test), avant de conclure sur les limites et les principaux enseignements.
 
 > Ce notebook contient déjà l’ensemble des résultats (tables, graphiques) et les commentaires d’analyse.  
-> Les commandes ci-dessous servent uniquement à **reproduire** le backtest à partir du repo GitHub dans un nouveau notebook Colab.
+> Les commandes ci-dessous servent uniquement à reproduire le backtest à partir du repo GitHub dans un nouveau notebook Colab.
 
 ---
 
