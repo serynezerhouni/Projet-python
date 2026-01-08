@@ -11,7 +11,7 @@ Ce projet implémente une stratégie momentum long/short sur univers large caps 
 - Coûts de transaction : 8 bps appliqués au turnover
 - Données : `yfinance` (prix ajustés + volumes)
 
-Le notebook présente la littérature, la construction du signal, le backtest, puis les analyses de robustesse (sensibilité, CAPM/FF3, sous-périodes, ablation, train/test), avant de conclure sur les limites et les principaux enseignements.
+Le notebook présente la littérature, la construction du signal et du portefeuille, le backtest, puis les analyses de robustesse (sensibilité, CAPM/FF3, sous-périodes, ablation, train/test), avant de conclure sur les limites et les principaux enseignements.
 
 
 ---
