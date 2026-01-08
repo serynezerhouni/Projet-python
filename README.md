@@ -1,6 +1,6 @@
 # Stratégie Momentum Long/Short 
 
-Ce projet implémente une stratégie momentum long/short sur univers large caps US, rebalancée mensuellement : long sur les meilleurs scores, short sur les plus faibles, avec pénalités RSI et volume pour limiter les signaux “fragiles”. La pondération rank × inverse-volatilité permet de concentrer l’exposition sur les convictions tout en réduisant la contribution des titres instables. Les performances et expositions factorielles (CAPM/FF3) sont reportées automatiquement.
+Ce projet implémente une stratégie momentum long/short sur univers large caps US, rebalancée mensuellement : long sur les meilleurs scores, short sur les plus faibles, avec pénalités RSI et volume pour limiter les signaux “fragiles”. La pondération rank × inverse-volatilité permet de concentrer l’exposition sur les convictions tout en réduisant la contribution des titres instables.
 
 **Configuration retenue :**
 - Période : 2010 → aujourd’hui
