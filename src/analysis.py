@@ -12,9 +12,9 @@ from pandas_datareader import data as web
 from .backtest import backtest_pocheA_momentum
 
 
-# =========================================
+
 # Helpers marché / CAPM
-# =========================================
+
 
 def get_market_returns(start_date: str, end_date: str, ticker: str = "^GSPC") -> pd.Series:
     """
@@ -116,9 +116,9 @@ def compare_exposures_capm(
     return pd.DataFrame(rows)
 
 
-# =========================================
+
 # Fama-French 3 facteurs
-# =========================================
+
 
 def get_ff3_factors(start_date: str, end_date: str) -> pd.DataFrame:
     """
@@ -200,9 +200,9 @@ def analyse_ff3_sur_strategie(
     return ret, metrics, ff_stats
 
 
-# =========================================
+
 # Analyse des sous-périodes
-# =========================================
+
 
 def run_subperiods_table(
     prices: pd.DataFrame,
@@ -261,9 +261,9 @@ def run_subperiods_table(
     return pd.DataFrame(rows)
 
 
-# =========================================
+
 # Sensibilité hyperparamètres
-# =========================================
+
 
 def hyperparam_grid_search(
     prices: pd.DataFrame,
@@ -312,9 +312,9 @@ def hyperparam_grid_search(
     return pd.DataFrame(rows)
 
 
-# =========================================
+
 # Ablation
-# =========================================
+
 
 def run_ablation_tests(
     prices: pd.DataFrame,
@@ -378,9 +378,9 @@ def run_ablation_tests(
         })
 
     return pd.DataFrame(rows)
-# =========================================
+
 # Train/Test (calibration 2010-2019, OOS 2020-2024)
-# =========================================
+
 
 from typing import Any  # optionnel
 
