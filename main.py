@@ -49,7 +49,7 @@ FINAL_PARAMS = dict(
     max_weight=None,
     min_names_per_side=3,
     weight_scheme="rank_inv_vol",
-    risk_adjust_by_vol_in_score=False,  # final = score NON risk-adjust (low-vol géré dans les poids)
+    risk_adjust_by_vol_in_score=False,  
 )
 
 # =========================
