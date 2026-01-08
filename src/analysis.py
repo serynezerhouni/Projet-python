@@ -414,7 +414,7 @@ def grid_search_on_period(
         for bp in bottom_list:
             for L in long_list:
                 for S in short_list:
-                    # combinaisons propres (ex: 0.5/0.5 ou 0.7/0.3)
+                  
                     if abs((L + S) - 1.0) > 1e-9:
                         continue
 
