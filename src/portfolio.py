@@ -16,19 +16,13 @@ def compute_weights_from_scores(
     bottom_pct: float = 0.4,
     long_exposure: float = 0.7,
     short_exposure: float = 0.3,
-    vol_scale: bool = False,  # conservé pour compat notebook (même si le scheme gère déjà)
+    vol_scale: bool = False,  
     max_weight: Optional[float] = None,
     min_names_per_side: int = 3,
-    weight_scheme: str = "rank_inv_vol",  # "equal" | "inv_vol" | "rank" | "rank_inv_vol" | "zscore_inv_vol"
+    weight_scheme: str = "rank_inv_vol",  
     winsor_k: float = 3.0,
 ) -> pd.Series:
-    """
-    Copie fidèle de ton notebook :
-    - sélection top/bottom
-    - schémas de pondération (equal / rank / inv_vol / rank_inv_vol / zscore_inv_vol)
-    - normalisation long_exposure / short_exposure
-    - cap optionnel + renormalisation
-    """
+ 
     scores = scores.dropna()
     if scores.empty:
         return pd.Series(dtype=float, index=scores.index)
