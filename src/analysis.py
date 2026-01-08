@@ -71,9 +71,7 @@ def compare_exposures_capm(
     weight_scheme: str = "rank_inv_vol",
     risk_adjust_by_vol_in_score: bool = False,
 ) -> pd.DataFrame:
-    """
-    Compare 50/50 vs 70/30 (mêmes paramètres sinon), + CAPM vs SP500.
-    """
+    
     rows = []
 
     for (L, S) in [(0.5, 0.5), (0.7, 0.3)]:
@@ -331,16 +329,7 @@ def run_ablation_tests(
     weight_scheme: str = "rank_inv_vol",
     risk_adjust_by_vol_in_score: bool = False,
 ) -> pd.DataFrame:
-    """
-    Ablation alignée sur le produit final :
-    - poids = rank_inv_vol
-    - expo = 70/30
-    - top/bottom = 0.2/0.4
-    - TC = 8 bps
-    - rebal = mensuel
-    - score NON risk-adjust (risk_adjust_by_vol_in_score=False)
-    Variantes : baseline, no_RSI, no_volume, no_RSI_no_volume
-    """
+
     configs = [
         ("baseline_final", True, True),
         ("no_RSI", False, True),
