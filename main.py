@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from src.data import get_prices_and_volume
-from src.backtest import backtest_pocheA_momentum
+from src.backtest import backtest_pocheA_momentum, performance_metrics
 from src.analysis import (
     compare_exposures_capm,
     analyse_ff3_sur_strategie,
@@ -16,7 +16,10 @@ from src.analysis import (
     run_subperiods_table,
     run_ablation_tests,
     train_test_hyperparams,
+    get_market_returns,
+    get_risk_free_daily,
 )
+from risk_report import run_report
 from src.signals import momentum_scores_pocheA
 from src.portfolio import compute_weights_from_scores
 
@@ -274,6 +277,44 @@ def main():
         "drawdown_oos_2020_2024.png",
         "Drawdown — OOS 2020–2024",
     )
+
+    # =========================
+    # 10) Sharpe net du taux sans risque + coût d'emprunt des shorts
+    # =========================
+    start = ret_final.index.min().date().isoformat()
+    end = ret_final.index.max().date().isoformat()
+    try:
+        rf = get_risk_free_daily(start, end)
+        met_rf = performance_metrics(ret_final, rf_daily=rf)
+        save_df(metrics_dict_to_df(met_rf, "final"), "perf_final_with_rf.csv")
+    except Exception as e:
+        print(f" excess Sharpe skipped (risk-free download failed): {e}")
+
+    params_borrow = FINAL_PARAMS.copy()
+    params_borrow["borrow_cost_bps_annual"] = 50.0  # coût d'emprunt typique large caps US
+    _, _, met_borrow = backtest_pocheA_momentum(prices=prices, volumes=volumes, **params_borrow)
+    save_df(
+        pd.concat([
+            metrics_dict_to_df(met_final, "no_borrow_cost"),
+            metrics_dict_to_df(met_borrow, "borrow_cost_50bps"),
+        ]),
+        "borrow_cost_sensitivity.csv",
+    )
+
+    # =========================
+    # 11) RISK REPORT : VaR / ES / Stressed VaR / backtesting / stress tests / bêta glissant
+    # =========================
+    market_path = None
+    try:
+        mkt = get_market_returns(start, end)
+        mkt = mkt.squeeze() if isinstance(mkt, pd.DataFrame) else mkt
+        market_path = TAB_DIR / "market_returns_sp500.csv"
+        mkt.rename("SP500").to_csv(market_path, header=True)
+    except Exception as e:
+        print(f" market download failed, rolling beta skipped: {e}")
+
+    run_report(TAB_DIR / "returns_final.csv", market_path=market_path)
+    run_report(TAB_DIR / "returns_oos_2020_2024.csv", market_path=market_path, tag="oos")
 
     # =========================
     # LATEST WEIGHTS

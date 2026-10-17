@@ -32,7 +32,8 @@ def momentum_scores_pocheA(
     if as_of_date is None:
         as_of_date = prices.index.max()
     if as_of_date not in prices.index:
-        as_of_date = prices.index[prices.index.get_loc(as_of_date, method="pad")]
+        # dernière date disponible <= as_of_date (get_loc(method="pad") n'existe plus depuis pandas 2.0)
+        as_of_date = prices.index.asof(as_of_date)
 
     idx_pos = prices.index.get_loc(as_of_date)
     required = max(ma_long, roc_window, vol_window, rsi_window)
