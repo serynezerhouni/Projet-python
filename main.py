@@ -217,15 +217,19 @@ def main():
     )
     save_df(capm_cmp, "capm_7030_vs_5050.csv")
 
-    ret_ff, met_ff, ff_stats = analyse_ff3_sur_strategie(
-        prices=prices,
-        volumes=volumes,
-        long_expo=0.7,
-        short_expo=0.3,
-        weight_scheme="rank_inv_vol",
-        risk_adjust_by_vol_in_score=False,
-    )
-    save_df(pd.DataFrame([ff_stats]), "ff3_loadings_final.csv")
+    # un échec de téléchargement Fama-French ne doit pas arrêter le reste du pipeline
+    try:
+        ret_ff, met_ff, ff_stats = analyse_ff3_sur_strategie(
+            prices=prices,
+            volumes=volumes,
+            long_expo=0.7,
+            short_expo=0.3,
+            weight_scheme="rank_inv_vol",
+            risk_adjust_by_vol_in_score=False,
+        )
+        save_df(pd.DataFrame([ff_stats]), "ff3_loadings_final.csv")
+    except Exception as e:
+        print(f" FF3 skipped: {e}")
 
     ablation = run_ablation_tests(prices, volumes)
     save_df(ablation.set_index("variant"), "ablation_final.csv")
