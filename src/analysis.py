@@ -3,11 +3,14 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+import io
+import urllib.request
+import zipfile
+
 import numpy as np
 import pandas as pd
 import yfinance as yf
 import statsmodels.api as sm
-from pandas_datareader import data as web
 
 from .backtest import backtest_pocheA_momentum
 
@@ -126,19 +129,69 @@ def compare_exposures_capm(
 # Fama-French 3 facteurs
 
 
+FF3_DAILY_URL = (
+    "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
+    "F-F_Research_Data_Factors_daily_CSV.zip"
+)
+
+
+def parse_ff3_daily_csv(text: str) -> pd.DataFrame:
+    """
+    Parse le CSV quotidien de la Kenneth French Data Library :
+    lignes de description, en-tête ",Mkt-RF,SMB,HML,RF", puis lignes "AAAAMMJJ, x, x, x, x"
+    jusqu'à la ligne de copyright. Valeurs en % -> converties en décimal.
+    """
+    lines = text.splitlines()
+    header = next(i for i, line in enumerate(lines) if "Mkt-RF" in line)
+    rows = []
+    for line in lines[header + 1:]:
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 5 or not (parts[0].isdigit() and len(parts[0]) == 8):
+            if rows:
+                break  # fin du tableau quotidien
+            continue
+        rows.append(parts[:5])
+    df = pd.DataFrame(rows, columns=["Date", "Mkt-RF", "SMB", "HML", "RF"])
+    df["Date"] = pd.to_datetime(df["Date"], format="%Y%m%d")
+    return df.set_index("Date").astype(float) / 100.0
+
+
 def get_ff3_factors(start_date: str, end_date: str) -> pd.DataFrame:
     """
-    Facteurs Fama-French 3 + RF (daily). Les données sont en % -> converties en décimal.
+    Facteurs Fama-French 3 + RF (daily), en décimal.
+    Téléchargement direct du fichier de la Kenneth French Data Library (pandas_datareader
+    n'est plus compatible avec les versions récentes de pandas) ; pandas_datareader en secours.
     """
-    ff = web.DataReader("F-F_Research_Data_Factors_Daily", "famafrench", start_date, end_date)[0]
-    ff = ff / 100.0
-    ff.index = ff.index.tz_localize(None)
-    return ff[["Mkt-RF", "SMB", "HML", "RF"]]
+    try:
+        req = urllib.request.Request(FF3_DAILY_URL, headers={"User-Agent": "Mozilla/5.0"})
+        raw = urllib.request.urlopen(req, timeout=60).read()
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            text = zf.read(zf.namelist()[0]).decode("latin-1")
+        ff = parse_ff3_daily_csv(text)
+    except Exception as direct_error:
+        try:
+            from pandas_datareader import data as web  # secours
+            ff = web.DataReader("F-F_Research_Data_Factors_Daily", "famafrench", start_date, end_date)[0]
+            ff = ff / 100.0
+            ff.index = ff.index.tz_localize(None)
+        except Exception as fallback_error:
+            raise RuntimeError(
+                f"Fama-French download failed (direct: {direct_error}; pandas_datareader: {fallback_error})"
+            )
+    return ff.loc[start_date:end_date, ["Mkt-RF", "SMB", "HML", "RF"]]
 
 
 def get_risk_free_daily(start_date: str, end_date: str) -> pd.Series:
-    """Taux sans risque quotidien (RF Fama-French, T-bill 1 mois), en décimal."""
-    return get_ff3_factors(start_date, end_date)["RF"]
+    """
+    Taux sans risque quotidien, en décimal : RF Fama-French (T-bill 1 mois) ;
+    en secours, taux du T-bill 13 semaines (^IRX, Yahoo Finance) ramené au jour.
+    """
+    try:
+        return get_ff3_factors(start_date, end_date)["RF"]
+    except Exception:
+        irx = yf.download("^IRX", start=start_date, end=end_date, progress=False, auto_adjust=False)["Close"]
+        irx = irx.squeeze() if isinstance(irx, pd.DataFrame) else irx
+        return (irx / 100.0 / 252.0).rename("RF")
 
 
 def run_ff3(
