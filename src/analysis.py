@@ -43,6 +43,8 @@ def run_capm(
 
     X = sm.add_constant(excess_mkt)
     model = sm.OLS(excess_port, X).fit()
+    # mêmes coefficients, erreurs-types robustes (Newey-West) : rendements quotidiens autocorrélés/hétéroscédastiques
+    model_nw = sm.OLS(excess_port, X).fit(cov_type="HAC", cov_kwds={"maxlags": 5})
 
     alpha_daily = float(model.params["const"])
     beta = float(model.params["MKT"])
@@ -54,6 +56,8 @@ def run_capm(
         "r2": float(model.rsquared),
         "t_alpha": float(model.tvalues["const"]),
         "t_beta": float(model.tvalues["MKT"]),
+        "t_alpha_nw": float(model_nw.tvalues["const"]),
+        "p_alpha_nw": float(model_nw.pvalues["const"]),
     }
     return stats, model
 
@@ -109,6 +113,10 @@ def compare_exposures_capm(
             "beta_mkt": capm_stats["beta"],
             "alpha_ann": capm_stats["alpha_ann"],
             "R2_CAPM": capm_stats["r2"],
+            "t_alpha": capm_stats["t_alpha"],
+            "t_beta": capm_stats["t_beta"],
+            "t_alpha_nw": capm_stats["t_alpha_nw"],
+            "p_alpha_nw": capm_stats["p_alpha_nw"],
         })
 
     return pd.DataFrame(rows)
@@ -128,6 +136,11 @@ def get_ff3_factors(start_date: str, end_date: str) -> pd.DataFrame:
     return ff[["Mkt-RF", "SMB", "HML", "RF"]]
 
 
+def get_risk_free_daily(start_date: str, end_date: str) -> pd.Series:
+    """Taux sans risque quotidien (RF Fama-French, T-bill 1 mois), en décimal."""
+    return get_ff3_factors(start_date, end_date)["RF"]
+
+
 def run_ff3(
     portfolio_returns: pd.Series,
     ff: pd.DataFrame
@@ -142,6 +155,7 @@ def run_ff3(
     X = sm.add_constant(df[["Mkt-RF", "SMB", "HML"]])
 
     model = sm.OLS(y, X).fit()
+    model_nw = sm.OLS(y, X).fit(cov_type="HAC", cov_kwds={"maxlags": 5})
 
     alpha_daily = float(model.params["const"])
     alpha_ann = (1.0 + alpha_daily) ** 252 - 1.0
@@ -152,6 +166,12 @@ def run_ff3(
         "load_Mkt": float(model.params["Mkt-RF"]),
         "load_SMB": float(model.params["SMB"]),
         "load_HML": float(model.params["HML"]),
+        "t_alpha": float(model.tvalues["const"]),
+        "t_alpha_nw": float(model_nw.tvalues["const"]),
+        "p_alpha_nw": float(model_nw.pvalues["const"]),
+        "t_Mkt_nw": float(model_nw.tvalues["Mkt-RF"]),
+        "t_SMB_nw": float(model_nw.tvalues["SMB"]),
+        "t_HML_nw": float(model_nw.tvalues["HML"]),
     }
     return stats, model
 

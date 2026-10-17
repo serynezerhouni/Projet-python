@@ -14,7 +14,11 @@ from .portfolio import compute_weights_from_scores
 def get_rebalance_dates(prices: pd.DataFrame, freq: str = "M") -> pd.DatetimeIndex:
     idx = prices.index
     if freq == "M":
-        anchor = prices.resample("M").last().index
+        # "ME" = month-end alias in pandas >= 2.2 ("M" is deprecated there); fallback for older pandas
+        try:
+            anchor = prices.resample("ME").last().index
+        except ValueError:
+            anchor = prices.resample("M").last().index
     elif freq == "W-FRI":
         anchor = prices.resample("W-FRI").last().index
     else:
@@ -25,7 +29,11 @@ def get_rebalance_dates(prices: pd.DataFrame, freq: str = "M") -> pd.DatetimeInd
     return idx[pos]
 
 
-def performance_metrics(daily_returns: pd.Series) -> Dict[str, float]:
+def performance_metrics(daily_returns: pd.Series, rf_daily=None) -> Dict[str, float]:
+    """
+    rf_daily (optional): daily risk-free rate (float or Series, e.g. Fama-French RF).
+    When provided, an excess-return Sharpe ratio is added; "Sharpe (ann.)" is unchanged.
+    """
     r = daily_returns.dropna()
     if r.empty:
         return {}
@@ -43,13 +51,24 @@ def performance_metrics(daily_returns: pd.Series) -> Dict[str, float]:
     dd = cum / cum.cummax() - 1.0
     max_dd = float(dd.min()) if len(dd) > 0 else np.nan
 
-    return {
+    out = {
         "CAGR": cagr,
         "Total Return": total_return,
         "Volatility (ann.)": vol,
         "Sharpe (ann.)": sharpe,
         "Max Drawdown": max_dd,
     }
+
+    if rf_daily is not None:
+        if isinstance(rf_daily, (pd.Series, pd.DataFrame)):
+            rf = pd.Series(rf_daily.squeeze()).reindex(r.index).ffill().fillna(0.0)
+        else:
+            rf = float(rf_daily)
+        ex = r - rf
+        ex_vol = float(ex.std() * math.sqrt(252))
+        out["Sharpe (excess, ann.)"] = float((ex.mean() * 252) / ex_vol) if ex_vol > 1e-9 else np.nan
+
+    return out
 
 
 def backtest_pocheA_momentum(
@@ -74,6 +93,9 @@ def backtest_pocheA_momentum(
     use_volume_penalty: bool = True,
     volume_threshold: float = 500_000.0,
     volume_penalty_factor: float = 0.5,
+
+    # coût d'emprunt des titres shortés (bps par an sur l'exposition short) ; 0 = résultats d'origine
+    borrow_cost_bps_annual: float = 0.0,
 ) -> Tuple[pd.Series, pd.DataFrame, Dict[str, float]]:
     prices = prices.dropna(how="all").sort_index()
     volumes = volumes.dropna(how="all").sort_index()
@@ -133,6 +155,9 @@ def backtest_pocheA_momentum(
             pret = period.dot(weights)
             if turnover > 0:
                 pret.iloc[0] -= tc
+            if borrow_cost_bps_annual > 0:
+                short_gross = float(-weights[weights < 0].sum())
+                pret = pret - short_gross * borrow_cost_bps_annual / 1e4 / 252.0
             daily_portfolio_returns.loc[pret.index] = pret.values
 
         prev_weights = weights

@@ -1,0 +1,3 @@
+confidence,method,observations,exceptions,expected_exceptions,exception_rate,kupiec_LR,kupiec_pvalue,christoffersen_LR,christoffersen_pvalue,exceptions_last_250d,basel_zone_last_250d
+0.95,historical,946,45,47.3,0.04756871035940803,0.11957874962524784,0.7294918193023712,1.4462986344138926,0.22912279773947597,8,n/a
+0.99,historical,946,9,9.5,0.009513742071881607,0.02296539794879493,0.8795470886463658,0.17307959016463315,0.6773892563873659,2,green
