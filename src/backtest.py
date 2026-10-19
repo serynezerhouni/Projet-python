@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from .signals import momentum_scores_pocheA
+from .signals import momentum_scores
 from .portfolio import compute_weights_from_scores
 
 
@@ -71,7 +71,7 @@ def performance_metrics(daily_returns: pd.Series, rf_daily=None) -> Dict[str, fl
     return out
 
 
-def backtest_pocheA_momentum(
+def backtest_momentum(
     prices: pd.DataFrame,
     volumes: pd.DataFrame,
     lookback_days: int = 60,
@@ -88,15 +88,23 @@ def backtest_pocheA_momentum(
     risk_adjust_by_vol_in_score: bool = True,
     weight_scheme: str = "rank_inv_vol",
 
-    #  pour ablation
+    # ablation switches
     use_rsi: bool = True,
     use_volume_penalty: bool = True,
     volume_threshold: float = 500_000.0,
     volume_penalty_factor: float = 0.5,
 
-    # coût d'emprunt des titres shortés (bps par an sur l'exposition short) ; 0 = résultats d'origine
+    # borrow cost on the short book (bps per year on short exposure); 0 = original results
     borrow_cost_bps_annual: float = 0.0,
 ) -> Tuple[pd.Series, pd.DataFrame, Dict[str, float]]:
+    """
+    Monthly long/short momentum backtest.
+
+    At each rebalance date, scores and weights only use data up to that day's
+    close; the new weights earn returns from the next trading day (no look-ahead).
+    Transaction costs (bps on turnover) are charged on the first day of each
+    holding period. Returns (daily returns, weights by rebalance date, metrics).
+    """
     prices = prices.dropna(how="all").sort_index()
     volumes = volumes.dropna(how="all").sort_index()
 
@@ -114,7 +122,7 @@ def backtest_pocheA_momentum(
         if idx < lookback_days:
             continue
 
-        scores = momentum_scores_pocheA(
+        scores = momentum_scores(
             prices=prices,
             volumes=volumes,
             lookback_days=lookback_days,

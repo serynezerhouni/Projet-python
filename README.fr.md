@@ -46,3 +46,6 @@ shutil.make_archive("outs", "zip", "outs")
 files.download("outs.zip")
 ```
 
+## Tests
+
+Les tests unitaires tournent hors ligne sur des données simulées : `pip install pytest`, puis `python -m pytest`. Ils vérifient notamment que les signaux et les poids n'utilisent jamais de prix futurs, que les coûts de transaction sont bien appliqués et que les outils de VaR se comportent comme prévu.

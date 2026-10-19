@@ -12,16 +12,16 @@ import pandas as pd
 import yfinance as yf
 import statsmodels.api as sm
 
-from .backtest import backtest_pocheA_momentum
+from .backtest import backtest_momentum
 
 
 
-# Helpers marché / CAPM
+# Market data and CAPM
 
 
 def get_market_returns(start_date: str, end_date: str, ticker: str = "^GSPC") -> pd.Series:
     """
-    Rendements quotidiens de l'indice de marché (SP500 par défaut).
+    Daily returns of the market index (S&P 500 by default).
     """
     data = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
     r_mkt = data["Close"].pct_change().dropna()
@@ -46,7 +46,7 @@ def run_capm(
 
     X = sm.add_constant(excess_mkt)
     model = sm.OLS(excess_port, X).fit()
-    # mêmes coefficients, erreurs-types robustes (Newey-West) : rendements quotidiens autocorrélés/hétéroscédastiques
+    # same coefficients with Newey-West (HAC) standard errors: daily returns are autocorrelated and heteroskedastic
     model_nw = sm.OLS(excess_port, X).fit(cov_type="HAC", cov_kwds={"maxlags": 5})
 
     alpha_daily = float(model.params["const"])
@@ -82,7 +82,7 @@ def compare_exposures_capm(
     rows = []
 
     for (L, S) in [(0.5, 0.5), (0.7, 0.3)]:
-        ret, w_df, met = backtest_pocheA_momentum(
+        ret, w_df, met = backtest_momentum(
             prices=prices,
             volumes=volumes,
             lookback_days=60,
@@ -126,7 +126,7 @@ def compare_exposures_capm(
 
 
 
-# Fama-French 3 facteurs
+# Fama-French three-factor model
 
 
 FF3_DAILY_URL = (
@@ -137,9 +137,9 @@ FF3_DAILY_URL = (
 
 def parse_ff3_daily_csv(text: str) -> pd.DataFrame:
     """
-    Parse le CSV quotidien de la Kenneth French Data Library :
-    lignes de description, en-tête ",Mkt-RF,SMB,HML,RF", puis lignes "AAAAMMJJ, x, x, x, x"
-    jusqu'à la ligne de copyright. Valeurs en % -> converties en décimal.
+    Parse the daily CSV of the Kenneth French Data Library: description lines,
+    a ",Mkt-RF,SMB,HML,RF" header, then "YYYYMMDD, x, x, x, x" rows until the
+    copyright line. Values are in percent and are converted to decimals.
     """
     lines = text.splitlines()
     header = next(i for i, line in enumerate(lines) if "Mkt-RF" in line)
@@ -148,7 +148,7 @@ def parse_ff3_daily_csv(text: str) -> pd.DataFrame:
         parts = [p.strip() for p in line.split(",")]
         if len(parts) < 5 or not (parts[0].isdigit() and len(parts[0]) == 8):
             if rows:
-                break  # fin du tableau quotidien
+                break  # end of the daily table
             continue
         rows.append(parts[:5])
     df = pd.DataFrame(rows, columns=["Date", "Mkt-RF", "SMB", "HML", "RF"])
@@ -158,9 +158,9 @@ def parse_ff3_daily_csv(text: str) -> pd.DataFrame:
 
 def get_ff3_factors(start_date: str, end_date: str) -> pd.DataFrame:
     """
-    Facteurs Fama-French 3 + RF (daily), en décimal.
-    Téléchargement direct du fichier de la Kenneth French Data Library (pandas_datareader
-    n'est plus compatible avec les versions récentes de pandas) ; pandas_datareader en secours.
+    Fama-French three factors + RF (daily, in decimals).
+    Downloads the file straight from the Kenneth French Data Library (pandas_datareader
+    no longer works with recent pandas versions); pandas_datareader is kept as a fallback.
     """
     try:
         req = urllib.request.Request(FF3_DAILY_URL, headers={"User-Agent": "Mozilla/5.0"})
@@ -170,7 +170,7 @@ def get_ff3_factors(start_date: str, end_date: str) -> pd.DataFrame:
         ff = parse_ff3_daily_csv(text)
     except Exception as direct_error:
         try:
-            from pandas_datareader import data as web  # secours
+            from pandas_datareader import data as web  # fallback
             ff = web.DataReader("F-F_Research_Data_Factors_Daily", "famafrench", start_date, end_date)[0]
             ff = ff / 100.0
             ff.index = ff.index.tz_localize(None)
@@ -183,8 +183,8 @@ def get_ff3_factors(start_date: str, end_date: str) -> pd.DataFrame:
 
 def get_risk_free_daily(start_date: str, end_date: str) -> pd.Series:
     """
-    Taux sans risque quotidien, en décimal : RF Fama-French (T-bill 1 mois) ;
-    en secours, taux du T-bill 13 semaines (^IRX, Yahoo Finance) ramené au jour.
+    Daily risk-free rate in decimals: Fama-French RF (1-month T-bill);
+    fallback: 13-week T-bill yield (^IRX, Yahoo Finance) converted to a daily rate.
     """
     try:
         return get_ff3_factors(start_date, end_date)["RF"]
@@ -229,7 +229,7 @@ def run_ff3(
     return stats, model
 
 
-def analyse_ff3_sur_strategie(
+def run_ff3_on_strategy(
     prices: pd.DataFrame,
     volumes: pd.DataFrame,
     long_expo: float = 0.7,
@@ -245,9 +245,9 @@ def analyse_ff3_sur_strategie(
     risk_adjust_by_vol_in_score: bool = False,
 ) -> Tuple[pd.Series, Dict[str, float], Dict[str, float]]:
     """
-    Run stratégie puis FF3.
+    Run the strategy, then regress its returns on the Fama-French factors.
     """
-    ret, w_df, metrics = backtest_pocheA_momentum(
+    ret, w_df, metrics = backtest_momentum(
         prices=prices,
         volumes=volumes,
         lookback_days=60,
@@ -272,7 +272,7 @@ def analyse_ff3_sur_strategie(
 
 
 
-# Analyse des sous-périodes
+# Sub-period analysis
 
 
 def run_subperiods_table(
@@ -303,7 +303,7 @@ def run_subperiods_table(
         p = prices.loc[start:end].copy()
         v = volumes.loc[start:end].copy()
 
-        ret, w_df, m = backtest_pocheA_momentum(
+        ret, w_df, m = backtest_momentum(
             prices=p,
             volumes=v,
             lookback_days=60,
@@ -333,7 +333,7 @@ def run_subperiods_table(
 
 
 
-# Sensibilité hyperparamètres
+# Hyperparameter sensitivity
 
 
 def hyperparam_grid_search(
@@ -354,7 +354,7 @@ def hyperparam_grid_search(
     for top in top_list:
         for bottom in bottom_list:
             for (L, S) in exposure_list:
-                ret, w_df, m = backtest_pocheA_momentum(
+                ret, w_df, m = backtest_momentum(
                     prices=prices,
                     volumes=volumes,
                     lookback_days=60,
@@ -412,7 +412,7 @@ def run_ablation_tests(
 
     rows = []
     for name, use_rsi, use_vol in configs:
-        ret, w_df, m = backtest_pocheA_momentum(
+        ret, w_df, m = backtest_momentum(
             prices=prices,
             volumes=volumes,
             lookback_days=60,
@@ -444,8 +444,6 @@ def run_ablation_tests(
 # Train/Test (calibration 2010-2019, OOS 2020-2024)
 
 
-from typing import Any  # optionnel
-
 def slice_data(
     prices: pd.DataFrame,
     volumes: pd.DataFrame,
@@ -455,7 +453,7 @@ def slice_data(
     p_sub = prices.loc[start_date:end_date].copy()
     v_sub = volumes.loc[start_date:end_date].copy()
     if p_sub.empty:
-        raise ValueError(f"Période vide entre {start_date} et {end_date}")
+        raise ValueError(f"Empty period between {start_date} and {end_date}")
     return p_sub, v_sub
 
 
@@ -478,7 +476,7 @@ def grid_search_on_period(
     risk_adjust_by_vol_in_score: bool = False,
 ) -> pd.DataFrame:
     """
-    Grid-search sur une sous-période donnée.
+    Grid search on a given sub-period.
     """
     p_sub, v_sub = slice_data(prices, volumes, start_date, end_date)
 
@@ -491,7 +489,7 @@ def grid_search_on_period(
                     if abs((L + S) - 1.0) > 1e-9:
                         continue
 
-                    ret, w_df, met = backtest_pocheA_momentum(
+                    ret, w_df, met = backtest_momentum(
                         prices=p_sub,
                         volumes=v_sub,
                         lookback_days=lookback_days,
@@ -548,9 +546,9 @@ def train_test_hyperparams(
     risk_adjust_by_vol_in_score: bool = False,
 ) -> Tuple[pd.DataFrame, pd.Series, Dict[str, float], pd.Series]:
     """
-    1) Grid-search sur train
-    2) Sélection du meilleur set
-    3) Backtest OOS sur test avec ce set
+    1) Grid search on the training period
+    2) Pick the parameter set with the best Sharpe ratio
+    3) Out-of-sample backtest on the test period with that set
     """
     grid_train = grid_search_on_period(
         prices=prices,
@@ -575,7 +573,7 @@ def train_test_hyperparams(
 
     p_test, v_test = slice_data(prices, volumes, test_start, test_end)
 
-    ret_test, w_test, met_test = backtest_pocheA_momentum(
+    ret_test, w_test, met_test = backtest_momentum(
         prices=p_test,
         volumes=v_test,
         lookback_days=lookback_days,
