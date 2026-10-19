@@ -28,8 +28,8 @@ Le notebook présente la littérature, la construction du signal et du portefeui
 Dans un notebook Colab, exécuter :
 
 ```bash
-!git clone https://github.com/serynezerhouni/Projet-python.git
-%cd Projet-python
+!git clone https://github.com/serynezerhouni/momentum-long-short.git
+%cd momentum-long-short
 !pip -q install -r requirements.txt
 !python main.py
 ```
@@ -46,3 +46,6 @@ shutil.make_archive("outs", "zip", "outs")
 files.download("outs.zip")
 ```
 
+## Tests
+
+Les tests unitaires tournent hors ligne sur des données simulées : `pip install pytest`, puis `python -m pytest`. Ils vérifient notamment que les signaux et les poids n'utilisent jamais de prix futurs, que les coûts de transaction sont bien appliqués et que les outils de VaR se comportent comme prévu.

@@ -19,10 +19,15 @@ def compute_weights_from_scores(
     vol_scale: bool = False,  
     max_weight: Optional[float] = None,
     min_names_per_side: int = 3,
-    weight_scheme: str = "rank_inv_vol",  
+    weight_scheme: str = "rank_inv_vol",
     winsor_k: float = 3.0,
 ) -> pd.Series:
- 
+    """
+    Long the top `top_pct` of scores and short the bottom `bottom_pct`, then
+    scale each side to its target exposure (`long_exposure`, `short_exposure`).
+
+    weight_scheme: "equal", "rank", "inv_vol", "rank_inv_vol" or "zscore_inv_vol".
+    """
     scores = scores.dropna()
     if scores.empty:
         return pd.Series(dtype=float, index=scores.index)
@@ -34,7 +39,7 @@ def compute_weights_from_scores(
     top = scores.nlargest(n_top).index
     bottom = scores.nsmallest(n_bottom).index
 
-    # Rang percentiles [0,1]
+    # percentile ranks in [0, 1]
     r = scores.rank(pct=True, ascending=True)
 
     if weight_scheme == "equal":
@@ -84,7 +89,7 @@ def compute_weights_from_scores(
     else:
         raise ValueError(f"Unknown weight_scheme: {weight_scheme}")
 
-    # Normalisation aux expositions
+    # scale each side to its target exposure
     weights = pd.Series(0.0, index=scores.index)
 
     long_sum = long_mag.sum() if len(long_mag) else 0.0
@@ -96,7 +101,7 @@ def compute_weights_from_scores(
     if short_sum > 1e-12:
         weights.loc[short_mag.index] = -(short_mag / short_sum) * short_exposure
 
-    # Cap par ligne + renormalisation
+    # optional per-name cap, then renormalise each side
     if max_weight is not None and max_weight > 0:
         weights = weights.clip(lower=-max_weight, upper=max_weight)
 
