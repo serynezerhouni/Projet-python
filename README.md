@@ -1,6 +1,6 @@
 # Cross-Sectional Momentum: Long/Short Strategy on US Large Caps
 
-[![tests](https://github.com/serynezerhouni/momentum-long-short/actions/workflows/tests.yml/badge.svg)](https://github.com/serynezerhouni/momentum-long-short/actions/workflows/tests.yml)
+[![tests](https://github.com/serynezerhouni/Projet-python/actions/workflows/tests.yml/badge.svg)](https://github.com/serynezerhouni/Projet-python/actions/workflows/tests.yml)
 
 *Version française : [README.fr.md](README.fr.md)*
 
@@ -124,8 +124,8 @@ tests/               unit tests on synthetic data (pytest)
 Google Colab:
 
 ```bash
-!git clone https://github.com/serynezerhouni/momentum-long-short.git
-%cd momentum-long-short
+!git clone https://github.com/serynezerhouni/Projet-python.git
+%cd Projet-python
 !pip -q install -r requirements.txt
 !python main.py
 ```
