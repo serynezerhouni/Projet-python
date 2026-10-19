@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from src.data import get_prices_and_volume
-from src.backtest import backtest_pocheA_momentum, performance_metrics
+from src.backtest import backtest_momentum, performance_metrics
 from src.analysis import (
     compare_exposures_capm,
-    analyse_ff3_sur_strategie,
+    run_ff3_on_strategy,
     hyperparam_grid_search,
     run_subperiods_table,
     run_ablation_tests,
@@ -20,12 +20,12 @@ from src.analysis import (
     get_risk_free_daily,
 )
 from risk_report import run_report
-from src.signals import momentum_scores_pocheA
+from src.signals import momentum_scores
 from src.portfolio import compute_weights_from_scores
 
 
 # =========================
-# 1) CONFIG PROJET
+# 1) PROJECT CONFIG
 # =========================
 UNIVERSE = [
     "AAPL","ABBV","ABT","ACN","ADBE","AIG","AMD","AMGN","AMT","AMZN","AVGO","AXP","BA","BAC","BK",
@@ -56,7 +56,7 @@ FINAL_PARAMS = dict(
 )
 
 # =========================
-# 2) DOSSIERS OUTPUT
+# 2) OUTPUT FOLDERS
 # =========================
 OUT_DIR = Path("outs")
 FIG_DIR = OUT_DIR / "figures"
@@ -139,10 +139,10 @@ def main():
         start=START_DATE,
         end=END_DATE,
     )
-    print(f" Prix téléchargés: {prices.shape[0]} dates x {prices.shape[1]} tickers")
+    print(f" Prices downloaded: {prices.shape[0]} dates x {prices.shape[1]} tickers")
 
     # --- FINAL
-    ret_final, w_final, met_final = backtest_pocheA_momentum(
+    ret_final, w_final, met_final = backtest_momentum(
         prices=prices, volumes=volumes, **FINAL_PARAMS
     )
     save_series(ret_final, "returns_final.csv")
@@ -150,11 +150,11 @@ def main():
     plot_and_save_equity({"final": ret_final}, "equity_final.png", "Equity curve — Final")
     plot_and_save_drawdown({"final": ret_final}, "drawdown_final.png", "Drawdown — Final")
 
-    # --- Equal-weight ( notebook: score risk-adjust True + poids equal)
+    # --- Equal-weight variant (as in the notebook: volatility-adjusted score + equal weights)
     params_equal = FINAL_PARAMS.copy()
     params_equal["weight_scheme"] = "equal"
-    params_equal["risk_adjust_by_vol_in_score"] = True  #  IMPORTANT
-    ret_equal, w_equal, met_equal = backtest_pocheA_momentum(
+    params_equal["risk_adjust_by_vol_in_score"] = True  # volatility-adjusted score for this variant
+    ret_equal, w_equal, met_equal = backtest_momentum(
         prices=prices, volumes=volumes, **params_equal
     )
 
@@ -217,9 +217,9 @@ def main():
     )
     save_df(capm_cmp, "capm_7030_vs_5050.csv")
 
-    # un échec de téléchargement Fama-French ne doit pas arrêter le reste du pipeline
+    # a failed Fama-French download must not stop the rest of the pipeline
     try:
-        ret_ff, met_ff, ff_stats = analyse_ff3_sur_strategie(
+        ret_ff, met_ff, ff_stats = run_ff3_on_strategy(
             prices=prices,
             volumes=volumes,
             long_expo=0.7,
@@ -237,7 +237,7 @@ def main():
     plt.figure()
     plt.bar(ablation["variant"], ablation["Sharpe"])
     plt.xticks(rotation=30, ha="right")
-    plt.title("Ablation — Sharpe par variante")
+    plt.title("Ablation — Sharpe by variant")
     plt.tight_layout()
     plt.savefig(FIG_DIR / "ablation_sharpe_bar.png", dpi=200)
     plt.close()
@@ -283,7 +283,7 @@ def main():
     )
 
     # =========================
-    # 10) Sharpe net du taux sans risque + coût d'emprunt des shorts
+    # 10) Excess-return Sharpe ratio + borrow cost on the short book
     # =========================
     start = ret_final.index.min().date().isoformat()
     end = ret_final.index.max().date().isoformat()
@@ -295,8 +295,8 @@ def main():
         print(f" excess Sharpe skipped (risk-free download failed): {e}")
 
     params_borrow = FINAL_PARAMS.copy()
-    params_borrow["borrow_cost_bps_annual"] = 50.0  # coût d'emprunt typique large caps US
-    _, _, met_borrow = backtest_pocheA_momentum(prices=prices, volumes=volumes, **params_borrow)
+    params_borrow["borrow_cost_bps_annual"] = 50.0  # typical borrow cost for US large caps
+    _, _, met_borrow = backtest_momentum(prices=prices, volumes=volumes, **params_borrow)
     save_df(
         pd.concat([
             metrics_dict_to_df(met_final, "no_borrow_cost"),
@@ -306,7 +306,7 @@ def main():
     )
 
     # =========================
-    # 11) RISK REPORT : VaR / ES / Stressed VaR / backtesting / stress tests / bêta glissant
+    # 11) RISK REPORT: VaR / ES / Stressed VaR / backtesting / stress tests / rolling beta
     # =========================
     market_path = None
     try:
@@ -326,8 +326,8 @@ def main():
     as_of = prices.index.max()
     returns = prices.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
-    # A) equal : score risk-adjust True + poids equal
-    scores_eq = momentum_scores_pocheA(
+    # A) equal: volatility-adjusted score + equal weights
+    scores_eq = momentum_scores(
         prices, volumes, lookback_days=60, as_of_date=as_of, risk_adjust_by_vol=True
     )
     w_eq_latest = compute_weights_from_scores(
@@ -344,8 +344,8 @@ def main():
     ).reindex(prices.columns).fillna(0.0)
     save_latest_weights_csv(as_of, w_eq_latest, "equal")
 
-    # B) invvol : score risk-adjust False + poids rank_inv_vol
-    scores_iv = momentum_scores_pocheA(
+    # B) invvol: raw score + rank x inverse-volatility weights
+    scores_iv = momentum_scores(
         prices, volumes, lookback_days=60, as_of_date=as_of, risk_adjust_by_vol=False
     )
     w_iv_latest = compute_weights_from_scores(
@@ -362,7 +362,7 @@ def main():
     ).reindex(prices.columns).fillna(0.0)
     save_latest_weights_csv(as_of, w_iv_latest, "invvol")
 
-    print("\n FIN")
+    print("\n Done")
 
 
 if __name__ == "__main__":

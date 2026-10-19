@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-def momentum_scores_pocheA(
+def momentum_scores(
     prices: pd.DataFrame,
     volumes: pd.DataFrame,
     lookback_days: int,
@@ -20,19 +20,27 @@ def momentum_scores_pocheA(
     rsi_penalty_factor: float = 0.5,
     risk_adjust_by_vol: bool = True,
 
-    #  switches ablation
+    # ablation switches
     use_rsi: bool = True,
     use_volume_penalty: bool = True,
     volume_threshold: float = 500_000.0,
     volume_penalty_factor: float = 0.5,
 ) -> pd.Series:
+    """
+    Cross-sectional momentum score of every stock at `as_of_date`.
+
+    Score = w_roc * rank(6-month rate of change) + w_ma * rank(MA50 / MA200),
+    optionally divided by realised volatility, then penalised for overbought
+    names (RSI above `rsi_penalty_level`) and illiquid names (average volume
+    below `volume_threshold`). Only data up to `as_of_date` is used.
+    """
     prices  = prices.dropna(how="all").sort_index()
     volumes = volumes.dropna(how="all").sort_index()
 
     if as_of_date is None:
         as_of_date = prices.index.max()
     if as_of_date not in prices.index:
-        # dernière date disponible <= as_of_date (get_loc(method="pad") n'existe plus depuis pandas 2.0)
+        # last available date <= as_of_date (get_loc(method="pad") was removed in pandas 2.0)
         as_of_date = prices.index.asof(as_of_date)
 
     idx_pos = prices.index.get_loc(as_of_date)

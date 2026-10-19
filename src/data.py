@@ -15,8 +15,8 @@ def get_prices_and_volume(
     end: Optional[str] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Télécharge prix ajustés (Close auto_adjust) + volumes via yfinance.
-    Retourne (prices, volumes) au format DataFrame (dates en index, tickers en colonnes).
+    Download adjusted close prices (auto_adjust) and volumes from yfinance.
+    Returns (prices, volumes): dates in the index, tickers in the columns.
     """
     if end is None:
         end = dt.date.today().isoformat()
@@ -29,16 +29,16 @@ def get_prices_and_volume(
         auto_adjust=True,
     )
     if raw.empty:
-        raise ValueError("Téléchargement vide : vérifier tickers/période.")
+        raise ValueError("Empty download: check the tickers and the dates.")
 
-    # yfinance renvoie souvent un MultiIndex (Open/High/Low/Close/Volume, ticker)
+    # yfinance usually returns a MultiIndex (Open/High/Low/Close/Volume, ticker)
     if isinstance(raw.columns, pd.MultiIndex):
         close = raw["Close"].copy()
         volume = raw["Volume"].copy()
         close.columns = close.columns.get_level_values(-1)
         volume.columns = volume.columns.get_level_values(-1)
     else:
-        # cas 1 ticker
+        # single ticker
         close = raw[["Close"]].copy()
         volume = raw[["Volume"]].copy()
         close.columns = [tickers[0]]
@@ -47,7 +47,7 @@ def get_prices_and_volume(
     close = close.dropna(how="all").sort_index()
     volume = volume.dropna(how="all").sort_index()
 
-  
+    # keep every requested ticker, even if the download returned nothing for it
     for t in tickers:
         if t not in close.columns:
             close[t] = np.nan

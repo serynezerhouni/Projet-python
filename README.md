@@ -1,5 +1,7 @@
 # Cross-Sectional Momentum: Long/Short Strategy on US Large Caps
 
+[![tests](https://github.com/serynezerhouni/momentum-long-short/actions/workflows/tests.yml/badge.svg)](https://github.com/serynezerhouni/momentum-long-short/actions/workflows/tests.yml)
+
 *Version française : [README.fr.md](README.fr.md)*
 
 A monthly long/short equity strategy on ~100 US large caps (2010 to today), built in Python, with a full robustness study (out-of-sample test, sensitivity grid, ablation, sub-periods, CAPM / Fama-French regressions) and a market risk report (VaR, Expected Shortfall, Stressed VaR, VaR backtesting, historical stress tests).
@@ -114,6 +116,7 @@ src/analysis.py      CAPM, Fama-French, sub-periods, grid search, ablation, trai
 src/risk.py          VaR, ES, Stressed VaR, VaR backtesting, stress tests, rolling beta
 notebook/            research notebook (in French): literature review, methodology, commentary
 outs/                result tables (CSV) and figures (PNG)
+tests/               unit tests on synthetic data (pytest)
 ```
 
 ## How to run
@@ -121,8 +124,8 @@ outs/                result tables (CSV) and figures (PNG)
 Google Colab:
 
 ```bash
-!git clone https://github.com/serynezerhouni/Projet-python.git
-%cd Projet-python
+!git clone https://github.com/serynezerhouni/momentum-long-short.git
+%cd momentum-long-short
 !pip -q install -r requirements.txt
 !python main.py
 ```
@@ -137,3 +140,18 @@ python risk_report.py --returns outs/tables/returns_oos_2020_2024.csv --tag oos
 ```
 
 Results are saved in `outs/tables/` (CSV) and `outs/figures/` (PNG), and the latest portfolio weights in `signals/`.
+
+## Tests
+
+The unit tests run offline on synthetic data, with no download:
+
+```bash
+pip install pytest
+python -m pytest
+```
+
+They check that scores and weights never use future prices, that new weights only earn returns from the next trading day, that transaction costs are charged on turnover as specified, that the long and short books hit their target exposures, and that the risk tools behave as expected (VaR against the normal quantile, Kupiec and Christoffersen tests, VaR forecasts that do not see the same day's return). They run automatically on every push.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
