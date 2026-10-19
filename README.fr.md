@@ -28,8 +28,8 @@ Le notebook présente la littérature, la construction du signal et du portefeui
 Dans un notebook Colab, exécuter :
 
 ```bash
-!git clone https://github.com/serynezerhouni/momentum-long-short.git
-%cd momentum-long-short
+!git clone https://github.com/serynezerhouni/Projet-python.git
+%cd Projet-python
 !pip -q install -r requirements.txt
 !python main.py
 ```
